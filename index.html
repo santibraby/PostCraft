@@ -31,8 +31,8 @@
             --error: #f44336;
             --warning: #ff9800;
             
-            /* Provider colors */
-            --gemini-color: #4285F4;
+            /* Provider colors - using brand colors */
+            --gemini-color: #D4A59A;
             --openai-color: #10A37F;
         }
 
@@ -114,7 +114,7 @@
         }
 
         .provider-btn.active.gemini {
-            background: var(--gemini-color);
+            background: var(--primary);
             color: white;
         }
 
@@ -124,13 +124,76 @@
         }
 
         .free-badge {
-            background: #4caf50;
+            background: var(--success);
             color: white;
             font-size: 9px;
             padding: 2px 5px;
             border-radius: 3px;
             font-weight: 600;
             text-transform: uppercase;
+        }
+
+        /* Info dot tooltip */
+        .info-dot {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            background: var(--primary-light);
+            color: var(--primary-dark);
+            border-radius: 50%;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: help;
+            position: relative;
+            margin-left: 6px;
+        }
+
+        .info-dot:hover .tooltip {
+            display: block;
+        }
+
+        .tooltip {
+            display: none;
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--text);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 400;
+            width: 280px;
+            z-index: 100;
+            line-height: 1.5;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+
+        .tooltip::before {
+            content: '';
+            position: absolute;
+            top: -6px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-bottom: 6px solid var(--text);
+        }
+
+        .tooltip ol {
+            margin: 8px 0 0 16px;
+            padding: 0;
+        }
+
+        .tooltip li {
+            margin-bottom: 4px;
+        }
+
+        .tooltip a {
+            color: var(--primary-light);
         }
 
         /* Button styles matching Forma Rosa */
@@ -167,6 +230,46 @@
 
         .btn-secondary:hover {
             background: var(--background-alt);
+        }
+
+        /* Brand analysis details */
+        .brand-details {
+            margin-top: 12px;
+        }
+
+        .brand-detail-row {
+            display: flex;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 12px;
+        }
+
+        .brand-detail-row:last-child {
+            border-bottom: none;
+        }
+
+        .brand-detail-label {
+            width: 100px;
+            color: var(--text-light);
+            flex-shrink: 0;
+        }
+
+        .brand-detail-value {
+            color: var(--text);
+        }
+
+        .brand-keywords {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+        }
+
+        .brand-keyword {
+            background: var(--primary-light);
+            color: var(--primary-dark);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
         }
     </style>
 </head>
@@ -205,18 +308,12 @@
             </svg>
         );
 
-        // Gemini icon
-        const GeminiIcon = () => (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-            </svg>
-        );
-
-        // OpenAI icon
-        const OpenAIIcon = () => (
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M22.282 9.821a5.985 5.985 0 0 0-.516-4.91 6.046 6.046 0 0 0-6.51-2.9A6.065 6.065 0 0 0 4.981 4.18a5.985 5.985 0 0 0-3.998 2.9 6.046 6.046 0 0 0 .743 7.097 5.98 5.98 0 0 0 .51 4.911 6.051 6.051 0 0 0 6.515 2.9A5.985 5.985 0 0 0 13.26 24a6.056 6.056 0 0 0 5.772-4.206 5.99 5.99 0 0 0 3.997-2.9 6.056 6.056 0 0 0-.747-7.073zM13.26 22.43a4.476 4.476 0 0 1-2.876-1.04l.141-.081 4.779-2.758a.795.795 0 0 0 .392-.681v-6.737l2.02 1.168a.071.071 0 0 1 .038.052v5.583a4.504 4.504 0 0 1-4.494 4.494zM3.6 18.304a4.47 4.47 0 0 1-.535-3.014l.142.085 4.783 2.759a.771.771 0 0 0 .78 0l5.843-3.369v2.332a.08.08 0 0 1-.033.062L9.74 19.95a4.5 4.5 0 0 1-6.14-1.646zM2.34 7.896a4.485 4.485 0 0 1 2.366-1.973V11.6a.766.766 0 0 0 .388.676l5.815 3.355-2.02 1.168a.076.076 0 0 1-.071 0l-4.83-2.786A4.504 4.504 0 0 1 2.34 7.872zm16.597 3.855l-5.833-3.387L15.119 7.2a.076.076 0 0 1 .071 0l4.83 2.791a4.494 4.494 0 0 1-.676 8.105v-5.678a.79.79 0 0 0-.407-.667zm2.01-3.023l-.141-.085-4.774-2.782a.776.776 0 0 0-.785 0L9.409 9.23V6.897a.066.066 0 0 1 .028-.061l4.83-2.787a4.5 4.5 0 0 1 6.68 4.66zm-12.64 4.135l-2.02-1.164a.08.08 0 0 1-.038-.057V6.075a4.5 4.5 0 0 1 7.375-3.453l-.142.08L8.704 5.46a.795.795 0 0 0-.393.681zm1.097-2.365l2.602-1.5 2.607 1.5v2.999l-2.597 1.5-2.607-1.5z"/>
-            </svg>
+        // Info tooltip component
+        const InfoDot = ({ children }) => (
+            <span className="info-dot">
+                ?
+                <div className="tooltip">{children}</div>
+            </span>
         );
 
         // Main App Component
@@ -284,7 +381,7 @@
                     },
                     body: JSON.stringify({
                         model: 'gpt-4o',
-                        max_tokens: 1000,
+                        max_tokens: 1500,
                         messages
                     })
                 });
@@ -293,24 +390,36 @@
                 return data.choices?.[0]?.message?.content || '';
             };
 
-            // Analyze brand website
+            // Analyze brand website - DEEPER ANALYSIS
             const analyzeBrand = async () => {
                 if (!brandUrl || !apiKey) return;
                 
                 setIsAnalyzingBrand(true);
                 try {
-                    const prompt = `Analyze the brand at ${brandUrl}. Based on the URL and your knowledge, understand their likely brand voice, tone, and language style. 
+                    const prompt = `You are a brand strategist. Analyze the brand at ${brandUrl}. Based on the URL, domain name, and your knowledge of this brand (or similar brands in the industry), provide a comprehensive brand analysis.
 
-Provide a JSON response with:
+Think deeply about:
+- What industry are they in?
+- What's their likely market positioning (luxury, budget, mid-range)?
+- Who would their ideal customer be?
+- What emotions do they want to evoke?
+- What language patterns would resonate with their audience?
+
+Provide a JSON response with this structure:
 {
-    "brandName": "the brand name",
-    "voiceTone": "describe their tone in 2-3 words (e.g., 'warm and professional', 'bold and playful')",
-    "keyPhrases": ["3-5 phrases or words they might commonly use"],
-    "targetAudience": "who they likely speak to",
-    "styleNotes": "brief notes on their likely visual/content style"
+    "brandName": "the brand name extracted from URL or known",
+    "industry": "their industry/sector (e.g., 'Fashion & Lifestyle', 'Food & Beverage', 'Tech', 'Wellness')",
+    "positioning": "market positioning in 2-3 words (e.g., 'Premium minimalist', 'Accessible luxury', 'Playful & bold')",
+    "voiceTone": "describe their communication tone in 3-4 words (e.g., 'warm, authentic, and inspiring')",
+    "targetAudience": "detailed description of ideal customer (e.g., 'Health-conscious millennials who value sustainability and aesthetic')",
+    "emotionalAppeal": "what emotions they evoke (e.g., 'aspiration, comfort, belonging')",
+    "keyPhrases": ["5-7 phrases or words that fit their brand voice"],
+    "hashtagStyle": "describe their hashtag approach (e.g., 'mix of branded + community tags', 'minimal and curated')",
+    "contentThemes": ["3-4 content themes they likely focus on"],
+    "doNotUse": ["2-3 words or tones to avoid for this brand"]
 }
 
-Respond ONLY with valid JSON, no other text or markdown.`;
+Respond ONLY with valid JSON, no other text, no markdown formatting.`;
 
                     let textContent;
                     if (provider === 'gemini') {
@@ -325,12 +434,18 @@ Respond ONLY with valid JSON, no other text or markdown.`;
                             setBrandAnalysis(JSON.parse(jsonMatch[0]));
                         }
                     } catch (e) {
+                        console.error('Parse error:', e);
                         setBrandAnalysis({
-                            brandName: "Brand",
+                            brandName: brandUrl.replace(/https?:\/\//, '').split('/')[0],
+                            industry: "Unknown",
+                            positioning: "Professional",
                             voiceTone: "Professional and friendly",
-                            keyPhrases: ["quality", "innovation", "community"],
                             targetAudience: "General audience",
-                            styleNotes: textContent.substring(0, 200)
+                            emotionalAppeal: "Trust and quality",
+                            keyPhrases: ["quality", "innovation", "community"],
+                            hashtagStyle: "Mixed approach",
+                            contentThemes: ["Products", "Lifestyle", "Community"],
+                            doNotUse: ["Overly casual", "Aggressive sales"]
                         });
                     }
                 } catch (error) {
@@ -370,20 +485,33 @@ Respond ONLY with valid JSON, no other text or markdown.`;
                     const base64 = imagePreview.split(',')[1];
                     const mediaType = uploadedImage.type;
 
-                    const brandContext = brandAnalysis 
-                        ? `Brand context: ${brandAnalysis.brandName} with a ${brandAnalysis.voiceTone} voice. They often use phrases like: ${brandAnalysis.keyPhrases?.join(', ')}. Target audience: ${brandAnalysis.targetAudience}.`
-                        : 'No specific brand context provided.';
+                    let brandContext = 'No specific brand context provided. Use a friendly, engaging tone.';
+                    
+                    if (brandAnalysis) {
+                        brandContext = `Brand Context:
+- Brand: ${brandAnalysis.brandName} (${brandAnalysis.industry})
+- Positioning: ${brandAnalysis.positioning}
+- Voice & Tone: ${brandAnalysis.voiceTone}
+- Target Audience: ${brandAnalysis.targetAudience}
+- Emotional Appeal: ${brandAnalysis.emotionalAppeal}
+- Key Phrases to use: ${brandAnalysis.keyPhrases?.join(', ')}
+- Hashtag Style: ${brandAnalysis.hashtagStyle}
+- Content Themes: ${brandAnalysis.contentThemes?.join(', ')}
+- Words/Tones to AVOID: ${brandAnalysis.doNotUse?.join(', ')}`;
+                    }
 
-                    const prompt = `Analyze this image for an Instagram post. ${brandContext}
+                    const prompt = `You are a social media manager creating an Instagram post. Analyze this image and create content that perfectly matches the brand voice.
 
-Provide a JSON response with:
+${brandContext}
+
+Analyze the image and provide a JSON response:
 {
-    "generalColor": "the dominant/overall color mood in 1-2 words (e.g., 'warm blue', 'earthy green', 'golden')",
-    "generalConcept": "what's happening in 2-4 words (e.g., 'sunset dinner', 'morning coffee ritual', 'urban adventure')",
-    "postDescription": "an engaging Instagram caption (2-3 sentences) that matches the brand voice, followed by 5-8 relevant hashtags"
+    "generalColor": "the dominant color mood in 1-2 words (e.g., 'warm terracotta', 'cool blue', 'golden hour')",
+    "generalConcept": "what's happening in 2-4 words (e.g., 'cozy morning ritual', 'urban exploration', 'sunset gathering')",
+    "postDescription": "an engaging Instagram caption (2-4 sentences) that authentically matches the brand voice and connects emotionally with the target audience. Include a subtle call-to-action or question. End with 6-10 relevant hashtags that match the brand's hashtag style - mix of popular and niche tags."
 }
 
-Respond ONLY with valid JSON, no other text or markdown.`;
+Make the caption feel human and authentic, not salesy or generic. Respond ONLY with valid JSON, no other text or markdown.`;
 
                     let textContent;
                     if (provider === 'gemini') {
@@ -482,13 +610,13 @@ Respond ONLY with valid JSON, no other text or markdown.`;
                                     className={`provider-btn ${provider === 'gemini' ? 'active gemini' : 'inactive'}`}
                                     onClick={() => handleProviderChange('gemini')}
                                 >
-                                    <GeminiIcon /> Gemini <span className="free-badge">Free</span>
+                                    Gemini <span className="free-badge">Free</span>
                                 </button>
                                 <button
                                     className={`provider-btn ${provider === 'openai' ? 'active openai' : 'inactive'}`}
                                     onClick={() => handleProviderChange('openai')}
                                 >
-                                    <OpenAIIcon /> ChatGPT
+                                    ChatGPT
                                 </button>
                             </div>
                         </div>
@@ -504,13 +632,28 @@ Respond ONLY with valid JSON, no other text or markdown.`;
                             marginBottom: '24px'
                         }}>
                             <label style={{
-                                display: 'block',
+                                display: 'flex',
+                                alignItems: 'center',
                                 fontSize: '12px',
                                 fontWeight: 500,
                                 marginBottom: '6px',
                                 color: 'var(--text-light)'
                             }}>
                                 {provider === 'gemini' ? 'Google Gemini API Key' : 'OpenAI API Key'}
+                                {provider === 'gemini' && (
+                                    <InfoDot>
+                                        <strong>How to get your free API key:</strong>
+                                        <ol>
+                                            <li>Go to <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a></li>
+                                            <li>Sign in with your Google account</li>
+                                            <li>Click "Create API Key"</li>
+                                            <li>Copy the key (starts with AIza...)</li>
+                                        </ol>
+                                        <div style={{ marginTop: '8px', opacity: 0.8 }}>
+                                            No credit card needed. 250 free requests/day.
+                                        </div>
+                                    </InfoDot>
+                                )}
                             </label>
                             <div style={{ display: 'flex', gap: '12px' }}>
                                 <input
@@ -545,17 +688,6 @@ Respond ONLY with valid JSON, no other text or markdown.`;
                                     </button>
                                 )}
                             </div>
-                            <p style={{
-                                fontSize: '12px',
-                                color: 'var(--text-light)',
-                                marginTop: '8px'
-                            }}>
-                                {provider === 'gemini' ? (
-                                    <>Get your free API key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--gemini-color)' }}>aistudio.google.com/apikey</a></>
-                                ) : (
-                                    <>Get your API key at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--openai-color)' }}>platform.openai.com</a> (paid)</>
-                                )}
-                            </p>
                         </div>
                     )}
 
@@ -601,7 +733,7 @@ Respond ONLY with valid JSON, no other text or markdown.`;
                                 fontSize: '13px',
                                 marginBottom: '16px'
                             }}>
-                                Enter your website URL to capture your brand's voice.
+                                Enter your website URL for a deep brand voice analysis.
                             </p>
 
                             <div style={{
@@ -657,18 +789,39 @@ Respond ONLY with valid JSON, no other text or markdown.`;
                                         alignItems: 'center',
                                         gap: '6px',
                                         color: 'var(--success)',
-                                        fontWeight: 500,
+                                        fontWeight: 600,
                                         fontSize: '13px',
                                         marginBottom: '8px'
                                     }}>
-                                        <CheckIcon /> Brand Analyzed
+                                        <CheckIcon /> {brandAnalysis.brandName}
                                     </div>
-                                    <p style={{ fontSize: '13px', marginBottom: '4px' }}>
-                                        <strong>{brandAnalysis.brandName}</strong> — {brandAnalysis.voiceTone}
-                                    </p>
-                                    <p style={{ fontSize: '12px', color: 'var(--text-light)' }}>
-                                        {brandAnalysis.targetAudience}
-                                    </p>
+                                    
+                                    <div className="brand-details">
+                                        <div className="brand-detail-row">
+                                            <span className="brand-detail-label">Industry</span>
+                                            <span className="brand-detail-value">{brandAnalysis.industry}</span>
+                                        </div>
+                                        <div className="brand-detail-row">
+                                            <span className="brand-detail-label">Positioning</span>
+                                            <span className="brand-detail-value">{brandAnalysis.positioning}</span>
+                                        </div>
+                                        <div className="brand-detail-row">
+                                            <span className="brand-detail-label">Voice</span>
+                                            <span className="brand-detail-value">{brandAnalysis.voiceTone}</span>
+                                        </div>
+                                        <div className="brand-detail-row">
+                                            <span className="brand-detail-label">Audience</span>
+                                            <span className="brand-detail-value">{brandAnalysis.targetAudience}</span>
+                                        </div>
+                                        <div className="brand-detail-row">
+                                            <span className="brand-detail-label">Key phrases</span>
+                                            <div className="brand-keywords">
+                                                {brandAnalysis.keyPhrases?.slice(0, 5).map((phrase, i) => (
+                                                    <span key={i} className="brand-keyword">{phrase}</span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -829,7 +982,7 @@ Respond ONLY with valid JSON, no other text or markdown.`;
                                     justifyContent: 'center',
                                     gap: '8px',
                                     background: uploadedImage && apiKey 
-                                        ? (provider === 'gemini' ? 'var(--gemini-color)' : 'var(--openai-color)')
+                                        ? 'var(--primary)'
                                         : 'var(--border)',
                                     cursor: uploadedImage && apiKey ? 'pointer' : 'not-allowed'
                                 }}
@@ -939,7 +1092,7 @@ Respond ONLY with valid JSON, no other text or markdown.`;
                         fontSize: '13px'
                     }}>
                         <p>
-                            Powered by {provider === 'gemini' ? 'Google Gemini (free)' : 'ChatGPT'}
+                            Powered by {provider === 'gemini' ? 'Google Gemini' : 'ChatGPT'}
                             {!showApiInput && (
                                 <> • <a 
                                     href="#" 
