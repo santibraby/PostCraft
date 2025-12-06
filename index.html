@@ -156,13 +156,13 @@
 
         .upload-preview-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
             gap: 8px;
             margin-bottom: 12px;
         }
 
         .upload-preview-item {
-            aspect-ratio: 1;
+            aspect-ratio: 4/5;
             border-radius: 4px;
             overflow: hidden;
             position: relative;
@@ -195,7 +195,7 @@
 
         .upload-preview-item:hover .remove-btn { opacity: 1; }
 
-        /* Instagram grid */
+        /* Instagram grid - 4:5 portrait ratio */
         .ig-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -207,7 +207,7 @@
         }
 
         .ig-grid-item {
-            aspect-ratio: 1;
+            aspect-ratio: 4/5;
             cursor: pointer;
             overflow: hidden;
             position: relative;
@@ -258,25 +258,32 @@
             gap: 10px;
         }
 
+        /* Fixed round avatar */
         .ig-preview-avatar {
             width: 32px;
             height: 32px;
+            min-width: 32px;
+            min-height: 32px;
             border-radius: 50%;
             background: var(--primary-light);
             display: flex;
             align-items: center;
             justify-content: center;
             font-weight: 600;
-            font-size: 12px;
+            font-size: 13px;
             color: var(--primary-dark);
+            overflow: hidden;
+            flex-shrink: 0;
         }
 
+        /* 4:5 portrait preview image */
         .ig-preview-image {
-            aspect-ratio: 1;
+            aspect-ratio: 4/5;
             background: var(--background-alt);
             display: flex;
             align-items: center;
             justify-content: center;
+            overflow: hidden;
         }
 
         .ig-preview-image img {
@@ -463,12 +470,21 @@
             return h;
         };
 
+        // Convert brand name to Instagram handle
+        const toInstagramHandle = (brandName) => {
+            if (!brandName) return 'yourbrand';
+            return brandName
+                .toLowerCase()
+                .replace(/[^a-z0-9]/g, '')
+                .slice(0, 30);
+        };
+
         // Main App
         function App() {
             const [apiKey, setApiKey] = useState('');
             const [brandUrl, setBrandUrl] = useState('');
             const [brandAnalysis, setBrandAnalysis] = useState(null);
-            const [images, setImages] = useState([]); // [{ file, preview, result }]
+            const [images, setImages] = useState([]);
             const [isGenerating, setIsGenerating] = useState(false);
             const [generationProgress, setGenerationProgress] = useState(0);
             const [selectedIndex, setSelectedIndex] = useState(0);
@@ -509,10 +525,15 @@
             const analyzeBrand = async () => {
                 if (!brandUrl || !apiKey) return null;
                 
-                const prompt = `Analyze the brand at ${brandUrl}. Provide JSON:
+                const prompt = `Analyze the brand at ${brandUrl}. 
+
+IMPORTANT: Extract the actual brand name from the website/URL. This will be used as their Instagram handle.
+
+Provide JSON:
 {
-    "brandName": "name",
-    "voiceTone": "tone description",
+    "brandName": "The actual brand name (e.g., 'Nike', 'Glossier', 'Forma Rosa')",
+    "instagramHandle": "suggested instagram handle without @ (lowercase, no spaces)",
+    "voiceTone": "tone description in 3-4 words",
     "targetAudience": "audience description",
     "keyPhrases": ["phrase1", "phrase2", "phrase3"],
     "hashtagStyle": "hashtag approach"
@@ -541,15 +562,14 @@ Respond ONLY with valid JSON.`;
                 return match ? JSON.parse(match[0]) : null;
             };
 
-            // Handle file selection - MULTI SELECT
+            // Handle file selection
             const handleFiles = (files) => {
                 const fileArray = Array.from(files).filter(f => f.type.startsWith('image/')).slice(0, 9);
                 
-                fileArray.forEach((file, i) => {
+                fileArray.forEach((file) => {
                     const reader = new FileReader();
                     reader.onload = (e) => {
                         setImages(prev => {
-                            // Don't exceed 9 images
                             if (prev.length >= 9) return prev;
                             return [...prev, { file, preview: e.target.result, result: null }];
                         });
@@ -573,7 +593,7 @@ Respond ONLY with valid JSON.`;
 
             const handleFileInput = (e) => {
                 handleFiles(e.target.files);
-                e.target.value = ''; // Reset so same files can be selected again
+                e.target.value = '';
             };
 
             const removeImage = (index) => {
@@ -594,7 +614,6 @@ Respond ONLY with valid JSON.`;
                 setPanelOpen(false);
 
                 try {
-                    // Analyze brand first if URL provided
                     let brandContext = 'No brand context. Use friendly, engaging tone.';
                     if (brandUrl) {
                         const brand = await analyzeBrand();
@@ -604,7 +623,6 @@ Respond ONLY with valid JSON.`;
                         }
                     }
 
-                    // Generate for each image
                     for (let i = 0; i < images.length; i++) {
                         const img = images[i];
                         const base64 = img.preview.split(',')[1];
@@ -634,7 +652,7 @@ Respond ONLY with valid JSON.`;
                 setIsGenerating(false);
             };
 
-            // Get sorted images for display
+            // Get sorted images
             const getDisplayImages = () => {
                 const indexed = images.map((img, i) => ({ img, originalIndex: i }));
                 
@@ -653,6 +671,11 @@ Respond ONLY with valid JSON.`;
 
             const displayImages = getDisplayImages();
             const selectedImage = images[selectedIndex];
+            
+            // Get Instagram handle from brand analysis
+            const instagramHandle = brandAnalysis?.instagramHandle || 
+                                   toInstagramHandle(brandAnalysis?.brandName) || 
+                                   'yourbrand';
 
             return (
                 <div style={{ minHeight: '100vh', padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
@@ -922,11 +945,11 @@ Respond ONLY with valid JSON.`;
                             <div className="ig-preview">
                                 <div className="ig-preview-header">
                                     <div className="ig-preview-avatar">
-                                        {brandAnalysis?.brandName?.charAt(0) || 'B'}
+                                        {brandAnalysis?.brandName?.charAt(0).toUpperCase() || 'B'}
                                     </div>
                                     <div>
                                         <div style={{ fontWeight: 600, fontSize: '14px' }}>
-                                            {brandAnalysis?.brandName || 'Your Brand'}
+                                            {instagramHandle}
                                         </div>
                                         <div style={{ fontSize: '12px', color: 'var(--text-light)' }}>
                                             {brandAnalysis?.voiceTone || 'Instagram Post'}
@@ -950,7 +973,9 @@ Respond ONLY with valid JSON.`;
                                                             height: '12px',
                                                             borderRadius: '50%',
                                                             background: colorToHex(selectedImage.result.generalColor),
-                                                            border: '1px solid var(--border)'
+                                                            border: '1px solid var(--border)',
+                                                            display: 'inline-block',
+                                                            flexShrink: 0
                                                         }}
                                                     />
                                                     {selectedImage.result.generalColor}
@@ -964,7 +989,7 @@ Respond ONLY with valid JSON.`;
 
                                         <div style={{ position: 'relative' }}>
                                             <p className="ig-preview-caption">
-                                                <strong style={{ marginRight: '6px' }}>{brandAnalysis?.brandName?.toLowerCase().replace(/\s/g, '') || 'yourbrand'}</strong>
+                                                <strong style={{ marginRight: '6px' }}>{instagramHandle}</strong>
                                                 {selectedImage.result.postDescription}
                                             </p>
                                             <button
