@@ -231,17 +231,6 @@
             pointer-events: none;
         }
 
-        .ig-grid-item .color-dot {
-            position: absolute;
-            bottom: 6px;
-            right: 6px;
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            border: 2px solid white;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-        }
-
         /* Preview panel - IG style */
         .ig-preview {
             background: var(--background);
@@ -319,7 +308,7 @@
 
         .ig-preview-caption {
             font-size: 13px;
-            line-height: 1.6;
+            line-height: 1.7;
             white-space: pre-wrap;
         }
 
@@ -535,8 +524,10 @@ Provide JSON:
     "instagramHandle": "suggested instagram handle without @ (lowercase, no spaces)",
     "voiceTone": "tone description in 3-4 words",
     "targetAudience": "audience description",
-    "keyPhrases": ["phrase1", "phrase2", "phrase3"],
-    "hashtagStyle": "hashtag approach"
+    "keyPhrases": ["phrase1", "phrase2", "phrase3", "phrase4", "phrase5"],
+    "hashtagStyle": "hashtag approach",
+    "brandPersonality": "describe the brand as if it were a person - their personality, how they speak, what they care about",
+    "avoidWords": ["words", "or", "phrases", "that", "dont", "fit", "the", "brand"]
 }
 Respond ONLY with valid JSON.`;
 
@@ -545,16 +536,45 @@ Respond ONLY with valid JSON.`;
                 return match ? JSON.parse(match[0]) : null;
             };
 
-            // Generate content for one image
-            const generateForImage = async (imageData, brandContext) => {
-                const prompt = `Analyze this image for Instagram. ${brandContext}
+            // Generate content for one image - IMPROVED PROMPTS
+            const generateForImage = async (imageData, brandContext, brandData) => {
+                const prompt = `You are a top-tier social media copywriter. Create an Instagram caption that would outperform 95% of brand posts.
 
-Provide JSON:
+${brandContext}
+
+CAPTION REQUIREMENTS:
+
+1. HOOK (First Line): The first ~100 characters must stop the scroll. Use ONE of these techniques:
+   - A provocative question ("What if your home could feel like this?")
+   - A bold statement ("Not everything needs to be loud.")
+   - An intriguing opening ("Three weeks. That's how long this took.")
+   - A pattern interrupt ("Stop scrolling. Look at this.")
+
+2. BODY: 2-3 short paragraphs with line breaks between them. Show, don't tell. Create emotion. Be specific, not generic. Sound human, not corporate.
+
+3. HASHTAGS: Integrate 4-6 hashtags NATURALLY into sentences. Example: "Crafted in #Italy for those who appreciate #SlowLiving" — NOT dumped at the end.
+
+4. ENGAGEMENT: End with a soft question or invitation that feels natural, not forced.
+
+5. FORMATTING: Use line breaks between sections for readability. The caption should breathe.
+
+AVOID:
+- Generic openings like "Embracing the..." or "Introducing..."
+- Listing adjectives without storytelling
+- Hashtag dumps at the end
+- Corporate-speak and marketing buzzwords
+- Being overly salesy or promotional
+${brandData?.avoidWords ? `- These words/phrases: ${brandData.avoidWords.join(', ')}` : ''}
+
+Analyze the image and provide JSON:
 {
-    "generalColor": "dominant color in 1-2 words",
+    "generalColor": "dominant color mood in 1-2 words",
     "generalConcept": "what's happening in 2-4 words",
-    "postDescription": "engaging caption (2-3 sentences) + 6-8 hashtags"
+    "postDescription": "the complete caption following ALL requirements above"
 }
+
+Remember: This caption should be better than what a human would write. Make it memorable.
+
 Respond ONLY with valid JSON.`;
 
                 const text = await callGemini(prompt, imageData);
@@ -614,12 +634,21 @@ Respond ONLY with valid JSON.`;
                 setPanelOpen(false);
 
                 try {
-                    let brandContext = 'No brand context. Use friendly, engaging tone.';
+                    let brandContext = 'No brand context. Use a warm, authentic, aspirational tone. Target design-conscious audience.';
+                    let brandData = null;
+                    
                     if (brandUrl) {
                         const brand = await analyzeBrand();
                         if (brand) {
                             setBrandAnalysis(brand);
-                            brandContext = `Brand: ${brand.brandName}. Voice: ${brand.voiceTone}. Audience: ${brand.targetAudience}. Use phrases like: ${brand.keyPhrases?.join(', ')}. Hashtag style: ${brand.hashtagStyle}`;
+                            brandData = brand;
+                            brandContext = `BRAND CONTEXT:
+- Brand: ${brand.brandName}
+- Voice & Tone: ${brand.voiceTone}
+- Target Audience: ${brand.targetAudience}
+- Brand Personality: ${brand.brandPersonality || 'Sophisticated, warm, authentic'}
+- Key Phrases to weave in naturally: ${brand.keyPhrases?.join(', ')}
+- Hashtag Style: ${brand.hashtagStyle}`;
                         }
                     }
 
@@ -629,7 +658,7 @@ Respond ONLY with valid JSON.`;
                         const mimeType = img.file.type;
                         
                         try {
-                            const result = await generateForImage({ base64, mimeType }, brandContext);
+                            const result = await generateForImage({ base64, mimeType }, brandContext, brandData);
                             setImages(prev => {
                                 const updated = [...prev];
                                 updated[i] = { ...updated[i], result };
@@ -672,7 +701,6 @@ Respond ONLY with valid JSON.`;
             const displayImages = getDisplayImages();
             const selectedImage = images[selectedIndex];
             
-            // Get Instagram handle from brand analysis
             const instagramHandle = brandAnalysis?.instagramHandle || 
                                    toInstagramHandle(brandAnalysis?.brandName) || 
                                    'yourbrand';
@@ -691,20 +719,11 @@ Respond ONLY with valid JSON.`;
                         alignItems: 'center'
                     }}>
                         <div>
-                            <h1 style={{ fontSize: '18px', fontWeight: 600 }}>PostCraft <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-light)' }}>v1.2</span></h1>
+                            <h1 style={{ fontSize: '18px', fontWeight: 600 }}>PostCraft <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-light)' }}>v1.3</span></h1>
                             <p style={{ color: 'var(--text-light)', fontSize: '13px', marginTop: '2px' }}>
                                 Batch Instagram Generator
                             </p>
                         </div>
-                        {hasGenerated && (
-                            <button
-                                className={`btn btn-secondary ${sortByColor ? 'active' : ''}`}
-                                onClick={() => setSortByColor(!sortByColor)}
-                                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-                            >
-                                <SortIcon /> Sort by Color
-                            </button>
-                        )}
                     </header>
 
                     {/* Collapsible Input Panel */}
@@ -929,16 +948,25 @@ Respond ONLY with valid JSON.`;
                                             onClick={() => setSelectedIndex(originalIndex)}
                                         >
                                             <img src={img.preview} alt="" />
-                                            {img.result && (
-                                                <div
-                                                    className="color-dot"
-                                                    style={{ background: colorToHex(img.result.generalColor) }}
-                                                    title={img.result.generalColor}
-                                                />
-                                            )}
                                         </div>
                                     ))}
                                 </div>
+                                
+                                {/* Sort by Color button below grid */}
+                                <button
+                                    className={`btn btn-secondary ${sortByColor ? 'active' : ''}`}
+                                    onClick={() => setSortByColor(!sortByColor)}
+                                    style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: '6px',
+                                        marginTop: '12px',
+                                        width: '100%',
+                                        justifyContent: 'center'
+                                    }}
+                                >
+                                    <SortIcon /> Sort by Color
+                                </button>
                             </div>
 
                             {/* Preview Panel */}
