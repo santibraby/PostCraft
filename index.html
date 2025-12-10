@@ -414,7 +414,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useCallback, useRef } = React;
+        const { useState, useCallback, useRef, useEffect } = React;
 
         // Icons
         const ChevronIcon = ({ collapsed }) => (
@@ -508,11 +508,20 @@
 
         // Main App
         function App() {
-            const [apiKey, setApiKey] = useState('');
-            const [brandName, setBrandName] = useState('');
-            const [brandDescription, setBrandDescription] = useState('');
-            const [targetAudience, setTargetAudience] = useState('');
-            const [brandUrl, setBrandUrl] = useState('');
+            // Load saved values from localStorage
+            const getSaved = (key, fallback = '') => {
+                try {
+                    return localStorage.getItem('postcraft_' + key) || fallback;
+                } catch (e) {
+                    return fallback;
+                }
+            };
+
+            const [apiKey, setApiKey] = useState(() => getSaved('apiKey'));
+            const [brandName, setBrandName] = useState(() => getSaved('brandName'));
+            const [brandDescription, setBrandDescription] = useState(() => getSaved('brandDescription'));
+            const [targetAudience, setTargetAudience] = useState(() => getSaved('targetAudience'));
+            const [brandUrl, setBrandUrl] = useState(() => getSaved('brandUrl'));
             const [images, setImages] = useState([]);
             const [isGenerating, setIsGenerating] = useState(false);
             const [generationProgress, setGenerationProgress] = useState(0);
@@ -521,7 +530,21 @@
             const [sortByColor, setSortByColor] = useState(false);
             const [hasGenerated, setHasGenerated] = useState(false);
             const [isDragging, setIsDragging] = useState(false);
+            const [regeneratingIndex, setRegeneratingIndex] = useState(null);
             const fileInputRef = useRef(null);
+
+            // Save to localStorage when values change
+            useEffect(() => {
+                try {
+                    localStorage.setItem('postcraft_apiKey', apiKey);
+                    localStorage.setItem('postcraft_brandName', brandName);
+                    localStorage.setItem('postcraft_brandDescription', brandDescription);
+                    localStorage.setItem('postcraft_targetAudience', targetAudience);
+                    localStorage.setItem('postcraft_brandUrl', brandUrl);
+                } catch (e) {
+                    // localStorage not available
+                }
+            }, [apiKey, brandName, brandDescription, targetAudience, brandUrl]);
 
             // Call Gemini API
             const callGemini = async (prompt, imageData = null) => {
@@ -713,6 +736,48 @@ Respond ONLY with valid JSON.`;
                 setIsGenerating(false);
             };
 
+            // Regenerate single image
+            const regenerateSelected = async () => {
+                if (!selectedImage || !apiKey) return;
+
+                setRegeneratingIndex(selectedIndex);
+
+                try {
+                    // Build brand context
+                    let brandContext = 'BRAND CONTEXT:\n';
+                    if (brandName) brandContext += `- Brand Name: ${brandName}\n`;
+                    if (brandDescription) {
+                        brandContext += `- What they do: ${brandDescription}\n`;
+                    } else {
+                        brandContext += `- What they do: (not specified - use general lifestyle/aspirational tone)\n`;
+                    }
+                    if (targetAudience) {
+                        brandContext += `- Target Audience: ${targetAudience}\n`;
+                        brandContext += `- Write captions that would resonate with: ${targetAudience}\n`;
+                    } else {
+                        brandContext += `- Target Audience: Design-conscious, aspirational audience\n`;
+                    }
+                    if (brandUrl) brandContext += `- Website: ${brandUrl}\n`;
+                    brandContext += `\nThe caption should speak TO the target audience and reflect what the brand does.`;
+
+                    const base64 = selectedImage.preview.split(',')[1];
+                    const mimeType = selectedImage.file.type;
+
+                    const result = await generateForImage({ base64, mimeType }, brandContext);
+                    
+                    setImages(prev => {
+                        const updated = [...prev];
+                        updated[selectedIndex] = { ...updated[selectedIndex], result };
+                        return updated;
+                    });
+                } catch (err) {
+                    console.error('Regenerate error:', err);
+                    alert('Error regenerating: ' + err.message);
+                }
+
+                setRegeneratingIndex(null);
+            };
+
             // Get sorted images
             const getDisplayImages = () => {
                 const indexed = images.map((img, i) => ({ img, originalIndex: i }));
@@ -748,7 +813,7 @@ Respond ONLY with valid JSON.`;
                         alignItems: 'center'
                     }}>
                         <div>
-                            <h1 style={{ fontSize: '18px', fontWeight: 600 }}>PostCraft <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-light)' }}>v1.5</span></h1>
+                            <h1 style={{ fontSize: '18px', fontWeight: 600 }}>PostCraft <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-light)' }}>v1.7</span></h1>
                             <p style={{ color: 'var(--text-light)', fontSize: '13px', marginTop: '2px' }}>
                                 Batch Instagram Generator
                             </p>
@@ -1094,12 +1159,59 @@ Respond ONLY with valid JSON.`;
                                                 Copy
                                             </button>
                                         </div>
+                                        
+                                        {/* Regenerate button */}
+                                        <button
+                                            className="btn btn-secondary"
+                                            onClick={regenerateSelected}
+                                            disabled={regeneratingIndex !== null}
+                                            style={{
+                                                marginTop: '16px',
+                                                width: '100%',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                gap: '6px'
+                                            }}
+                                        >
+                                            {regeneratingIndex === selectedIndex ? (
+                                                <span style={{ animation: 'pulse 1.5s infinite' }}>Regenerating...</span>
+                                            ) : (
+                                                <>
+                                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                        <path d="M21 2v6h-6M3 22v-6h6M21 12A9 9 0 0 0 6 5.3L3 8M3 12a9 9 0 0 0 15 6.7l3-2.7"/>
+                                                    </svg>
+                                                    Regenerate Caption
+                                                </>
+                                            )}
+                                        </button>
                                     </div>
                                 )}
 
                                 {selectedImage && !selectedImage.result && (
-                                    <div className="ig-preview-content" style={{ color: 'var(--text-light)', textAlign: 'center', padding: '40px' }}>
-                                        No caption generated for this image
+                                    <div className="ig-preview-content" style={{ textAlign: 'center', padding: '40px' }}>
+                                        <p style={{ color: 'var(--text-light)', marginBottom: '16px' }}>
+                                            No caption generated for this image
+                                        </p>
+                                        <button
+                                            className="btn btn-primary"
+                                            onClick={regenerateSelected}
+                                            disabled={regeneratingIndex !== null}
+                                            style={{
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '6px'
+                                            }}
+                                        >
+                                            {regeneratingIndex === selectedIndex ? (
+                                                <span style={{ animation: 'pulse 1.5s infinite' }}>Generating...</span>
+                                            ) : (
+                                                <>
+                                                    <SparkleIcon />
+                                                    Generate Caption
+                                                </>
+                                            )}
+                                        </button>
                                     </div>
                                 )}
                             </div>
