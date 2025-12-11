@@ -866,6 +866,50 @@ Respond ONLY with valid JSON.`;
                     .slice(0, 30);
             };
 
+            // Crop image to 4:5 ratio using canvas
+            const cropTo4x5 = (imageSrc) => {
+                return new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const targetRatio = 4 / 5;
+                        const imgRatio = img.width / img.height;
+                        
+                        let cropWidth, cropHeight, cropX, cropY;
+                        
+                        if (imgRatio > targetRatio) {
+                            // Image is wider than 4:5, crop sides
+                            cropHeight = img.height;
+                            cropWidth = img.height * targetRatio;
+                            cropX = (img.width - cropWidth) / 2;
+                            cropY = 0;
+                        } else {
+                            // Image is taller than 4:5, crop top/bottom
+                            cropWidth = img.width;
+                            cropHeight = img.width / targetRatio;
+                            cropX = 0;
+                            cropY = (img.height - cropHeight) / 2;
+                        }
+                        
+                        // Create canvas at cropped dimensions (maintain resolution)
+                        const canvas = document.createElement('canvas');
+                        canvas.width = cropWidth;
+                        canvas.height = cropHeight;
+                        
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(
+                            img,
+                            cropX, cropY, cropWidth, cropHeight,  // Source rect
+                            0, 0, cropWidth, cropHeight           // Dest rect
+                        );
+                        
+                        canvas.toBlob((blob) => {
+                            resolve(blob);
+                        }, 'image/jpeg', 0.92);
+                    };
+                    img.src = imageSrc;
+                });
+            };
+
             // Download all images and captions
             const downloadAll = async () => {
                 if (images.length === 0) return;
@@ -890,21 +934,11 @@ Respond ONLY with valid JSON.`;
                         const sanitizedConcept = sanitizeFilename(concept);
                         const baseName = `${orderNum}_postcraft_${sanitizedConcept}`;
                         
-                        // Get image extension from mime type
-                        const ext = img.file.type.split('/')[1] || 'jpg';
-                        const fileName = `${baseName}.${ext}`;
+                        // Crop image to 4:5 and get as blob
+                        const croppedBlob = await cropTo4x5(img.preview);
                         
-                        // Convert base64 to blob
-                        const base64Data = img.preview.split(',')[1];
-                        const byteCharacters = atob(base64Data);
-                        const byteNumbers = new Array(byteCharacters.length);
-                        for (let j = 0; j < byteCharacters.length; j++) {
-                            byteNumbers[j] = byteCharacters.charCodeAt(j);
-                        }
-                        const byteArray = new Uint8Array(byteNumbers);
-                        
-                        // Add image to zip
-                        zip.file(fileName, byteArray);
+                        // Add image to zip (always jpg after canvas processing)
+                        zip.file(`${baseName}.jpg`, croppedBlob);
                         
                         // Add to captions text
                         const caption = img.result?.postDescription || '(No caption generated)';
@@ -973,7 +1007,7 @@ Respond ONLY with valid JSON.`;
                         alignItems: 'center'
                     }}>
                         <div>
-                            <h1 style={{ fontSize: '18px', fontWeight: 600 }}>PostCraft <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-light)' }}>v2.2</span></h1>
+                            <h1 style={{ fontSize: '18px', fontWeight: 600 }}>PostCraft <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-light)' }}>v2.3</span></h1>
                             <p style={{ color: 'var(--text-light)', fontSize: '13px', marginTop: '2px' }}>
                                 Batch Instagram Generator
                             </p>
