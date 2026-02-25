@@ -163,7 +163,7 @@
         }
 
         .upload-preview-item {
-            aspect-ratio: 4/5;
+            aspect-ratio: 3/4;
             border-radius: 4px;
             overflow: hidden;
             position: relative;
@@ -196,7 +196,7 @@
 
         .upload-preview-item:hover .remove-btn { opacity: 1; }
 
-        /* Instagram grid - 4:5 portrait ratio */
+        /* Instagram grid - 3:4 portrait ratio */
         .ig-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -208,7 +208,7 @@
         }
 
         .ig-grid-item {
-            aspect-ratio: 4/5;
+            aspect-ratio: 3/4;
             cursor: pointer;
             overflow: hidden;
             position: relative;
@@ -276,7 +276,7 @@
         }
 
         .ig-preview-image {
-            aspect-ratio: 4/5;
+            aspect-ratio: 3/4;
             background: var(--background-alt);
             display: flex;
             align-items: center;
@@ -534,6 +534,7 @@
             const [brandDescription, setBrandDescription] = useState(() => getSaved('brandDescription'));
             const [targetAudience, setTargetAudience] = useState(() => getSaved('targetAudience'));
             const [brandUrl, setBrandUrl] = useState(() => getSaved('brandUrl'));
+            const [skipCaptions, setSkipCaptions] = useState(false);
             const [images, setImages] = useState([]);
             const [isGenerating, setIsGenerating] = useState(false);
             const [generationProgress, setGenerationProgress] = useState(0);
@@ -552,7 +553,7 @@
             const fileInputRef = useRef(null);
             const previewImageRef = useRef(null);
             
-            const targetRatio = 4 / 5;
+            const targetRatio = 3 / 4;
 
             // Save to localStorage when values change
             useEffect(() => {
@@ -785,60 +786,74 @@ Respond ONLY with valid JSON.`;
 
             // Generate all
             const generateAll = async () => {
-                if (images.length === 0 || !apiKey) return;
+                if (images.length === 0) return;
+                if (!skipCaptions && !apiKey) return;
 
                 setIsGenerating(true);
                 setGenerationProgress(0);
                 setPanelOpen(false);
 
                 try {
-                    // Build brand context from user inputs
-                    let brandContext = 'BRAND CONTEXT:\n';
-                    
-                    if (brandName) {
-                        brandContext += `- Brand Name: ${brandName}\n`;
-                    }
-                    
-                    if (brandDescription) {
-                        brandContext += `- What they do: ${brandDescription}\n`;
+                    if (skipCaptions) {
+                        // Just mark as generated without calling API
+                        setImages(prev => prev.map(img => ({
+                            ...img,
+                            result: {
+                                generalColor: 'N/A',
+                                generalConcept: 'image',
+                                postDescription: ''
+                            }
+                        })));
+                        setGenerationProgress(100);
                     } else {
-                        brandContext += `- What they do: (not specified - use general lifestyle/aspirational tone)\n`;
-                    }
-                    
-                    if (targetAudience) {
-                        brandContext += `- Target Audience: ${targetAudience}\n`;
-                        brandContext += `- Write captions that would resonate with: ${targetAudience}\n`;
-                    } else {
-                        brandContext += `- Target Audience: Design-conscious, aspirational audience\n`;
-                    }
-
-                    if (brandUrl) {
-                        brandContext += `- Website: ${brandUrl}\n`;
-                    }
-
-                    brandContext += `\nThe caption should speak TO the target audience and reflect what the brand does.`;
-
-                    for (let i = 0; i < images.length; i++) {
-                        const img = images[i];
-                        const base64 = img.preview.split(',')[1];
-                        const mimeType = img.file.type;
+                        // Build brand context from user inputs
+                        let brandContext = 'BRAND CONTEXT:\n';
                         
-                        try {
-                            const result = await generateForImage({ base64, mimeType }, brandContext);
-                            setImages(prev => {
-                                const updated = [...prev];
-                                updated[i] = { ...updated[i], result };
-                                return updated;
-                            });
-                        } catch (err) {
-                            console.error(`Error generating for image ${i}:`, err);
+                        if (brandName) {
+                            brandContext += `- Brand Name: ${brandName}\n`;
+                        }
+                        
+                        if (brandDescription) {
+                            brandContext += `- What they do: ${brandDescription}\n`;
+                        } else {
+                            brandContext += `- What they do: (not specified - use general lifestyle/aspirational tone)\n`;
+                        }
+                        
+                        if (targetAudience) {
+                            brandContext += `- Target Audience: ${targetAudience}\n`;
+                            brandContext += `- Write captions that would resonate with: ${targetAudience}\n`;
+                        } else {
+                            brandContext += `- Target Audience: Design-conscious, aspirational audience\n`;
                         }
 
-                        setGenerationProgress(Math.round(((i + 1) / images.length) * 100));
-                        
-                        // Wait 1.5 seconds between requests to avoid rate limiting
-                        if (i < images.length - 1) {
-                            await delay(1500);
+                        if (brandUrl) {
+                            brandContext += `- Website: ${brandUrl}\n`;
+                        }
+
+                        brandContext += `\nThe caption should speak TO the target audience and reflect what the brand does.`;
+
+                        for (let i = 0; i < images.length; i++) {
+                            const img = images[i];
+                            const base64 = img.preview.split(',')[1];
+                            const mimeType = img.file.type;
+                            
+                            try {
+                                const result = await generateForImage({ base64, mimeType }, brandContext);
+                                setImages(prev => {
+                                    const updated = [...prev];
+                                    updated[i] = { ...updated[i], result };
+                                    return updated;
+                                });
+                            } catch (err) {
+                                console.error(`Error generating for image ${i}:`, err);
+                            }
+
+                            setGenerationProgress(Math.round(((i + 1) / images.length) * 100));
+                            
+                            // Wait 1.5 seconds between requests to avoid rate limiting
+                            if (i < images.length - 1) {
+                                await delay(1500);
+                            }
                         }
                     }
 
@@ -954,22 +969,22 @@ Respond ONLY with valid JSON.`;
                     .slice(0, 30);
             };
 
-            // Crop image to 4:5 ratio using canvas
-            const cropTo4x5 = (imageSrc, offset = 0.5, zoom = 1) => {
+            // Crop image to 3:4 ratio using canvas (1080x1440 Instagram standard)
+            const cropTo3x4 = (imageSrc, offset = 0.5, zoom = 1) => {
                 return new Promise((resolve) => {
                     const img = new Image();
                     img.onload = () => {
-                        const targetRatio = 4 / 5;
+                        const targetRatio = 3 / 4;
                         const imgRatio = img.width / img.height;
                         
                         let baseCropWidth, baseCropHeight, cropX, cropY;
                         
                         if (imgRatio > targetRatio) {
-                            // Image is wider than 4:5, crop sides
+                            // Image is wider than 3:4, crop sides
                             baseCropHeight = img.height;
                             baseCropWidth = img.height * targetRatio;
                         } else {
-                            // Image is taller than 4:5, crop top/bottom
+                            // Image is taller than 3:4, crop top/bottom
                             baseCropWidth = img.width;
                             baseCropHeight = img.width / targetRatio;
                         }
@@ -993,9 +1008,9 @@ Respond ONLY with valid JSON.`;
                             cropY = maxCropY * offset;
                         }
                         
-                        // Create canvas at standard output size (maintain quality)
-                        const outputWidth = Math.min(baseCropWidth, 1080); // Max 1080px wide for Instagram
-                        const outputHeight = outputWidth / targetRatio;
+                        // Create canvas at Instagram standard size (1080x1440)
+                        const outputWidth = Math.min(baseCropWidth, 1080);
+                        const outputHeight = outputWidth / targetRatio; // 1440 at 1080 width
                         
                         const canvas = document.createElement('canvas');
                         canvas.width = outputWidth;
@@ -1029,35 +1044,42 @@ Respond ONLY with valid JSON.`;
                     // Bottom-right first, then bottom-middle, etc.
                     const postingOrder = [...images].reverse();
                     
-                    let captionsText = `POSTCRAFT CAPTIONS\n`;
-                    captionsText += `==================\n`;
-                    captionsText += `Post in this order (1 first, ${postingOrder.length} last) to achieve your grid layout.\n\n`;
+                    let captionsText = '';
+                    if (!skipCaptions) {
+                        captionsText = `POSTCRAFT CAPTIONS\n`;
+                        captionsText += `==================\n`;
+                        captionsText += `Post in this order (1 first, ${postingOrder.length} last) to achieve your grid layout.\n\n`;
+                    }
                     
                     for (let i = 0; i < postingOrder.length; i++) {
                         const img = postingOrder[i];
                         const orderNum = i + 1;
-                        const concept = img.result?.generalConcept || 'image';
+                        const concept = skipCaptions ? 'image' : (img.result?.generalConcept || 'image');
                         const sanitizedConcept = sanitizeFilename(concept);
                         const baseName = `${orderNum}_postcraft_${sanitizedConcept}`;
                         
-                        // Crop image to 4:5 and get as blob
-                        const croppedBlob = await cropTo4x5(img.preview, img.cropOffset ?? 0.5, img.cropZoom ?? 1);
+                        // Crop image to 3:4 and get as blob
+                        const croppedBlob = await cropTo3x4(img.preview, img.cropOffset ?? 0.5, img.cropZoom ?? 1);
                         
                         // Add image to zip (always jpg after canvas processing)
                         zip.file(`${baseName}.jpg`, croppedBlob);
                         
-                        // Add to captions text
-                        const caption = img.result?.postDescription || '(No caption generated)';
-                        captionsText += `${'='.repeat(50)}\n`;
-                        captionsText += `${baseName}\n`;
-                        captionsText += `${'='.repeat(50)}\n\n`;
-                        captionsText += `Color: ${img.result?.generalColor || 'N/A'}\n`;
-                        captionsText += `Concept: ${concept}\n\n`;
-                        captionsText += `CAPTION:\n${caption}\n\n\n`;
+                        // Add to captions text (only if generating captions)
+                        if (!skipCaptions) {
+                            const caption = img.result?.postDescription || '(No caption generated)';
+                            captionsText += `${'='.repeat(50)}\n`;
+                            captionsText += `${baseName}\n`;
+                            captionsText += `${'='.repeat(50)}\n\n`;
+                            captionsText += `Color: ${img.result?.generalColor || 'N/A'}\n`;
+                            captionsText += `Concept: ${concept}\n\n`;
+                            captionsText += `CAPTION:\n${caption}\n\n\n`;
+                        }
                     }
                     
-                    // Add captions file
-                    zip.file('captions.txt', captionsText);
+                    // Add captions file (only if generating captions)
+                    if (!skipCaptions) {
+                        zip.file('captions.txt', captionsText);
+                    }
                     
                     // Generate and download zip
                     const content = await zip.generateAsync({ type: 'blob' });
@@ -1113,7 +1135,7 @@ Respond ONLY with valid JSON.`;
                         alignItems: 'center'
                     }}>
                         <div>
-                            <h1 style={{ fontSize: '18px', fontWeight: 600 }}>PostCraft <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-light)' }}>v2.5</span></h1>
+                            <h1 style={{ fontSize: '18px', fontWeight: 600 }}>PostCraft <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-light)' }}>v2.7</span></h1>
                             <p style={{ color: 'var(--text-light)', fontSize: '13px', marginTop: '2px' }}>
                                 Batch Instagram Generator
                             </p>
@@ -1161,103 +1183,130 @@ Respond ONLY with valid JSON.`;
 
                         {panelOpen && (
                             <div className="input-panel-content">
-                                {/* API Key */}
+                                {/* Skip Captions Toggle */}
                                 <div className="form-group" style={{ marginTop: '16px' }}>
-                                    <label className="form-label" style={{ display: 'flex', alignItems: 'center' }}>
-                                        Google Gemini API Key
-                                        <InfoDot>
-                                            <strong>Get your free API key:</strong>
-                                            <ol>
-                                                <li>Go to <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a></li>
-                                                <li>Sign in with Google</li>
-                                                <li>Click "Create API Key"</li>
-                                                <li>Copy key (starts with AIza...)</li>
-                                            </ol>
-                                            <div style={{ marginTop: '8px', opacity: 0.8 }}>Free: 250 requests/day</div>
-                                        </InfoDot>
+                                    <label style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '10px',
+                                        cursor: 'pointer',
+                                        fontSize: '14px'
+                                    }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={skipCaptions}
+                                            onChange={(e) => setSkipCaptions(e.target.checked)}
+                                            style={{ 
+                                                width: '18px', 
+                                                height: '18px',
+                                                accentColor: 'var(--primary)'
+                                            }}
+                                        />
+                                        <span>Skip caption generation (crop & order only)</span>
                                     </label>
-                                    <input
-                                        type="password"
-                                        className="form-input"
-                                        value={apiKey}
-                                        onChange={(e) => setApiKey(e.target.value)}
-                                        placeholder="AIza..."
-                                        style={{ maxWidth: '400px' }}
-                                    />
                                 </div>
 
-                                {/* Brand Info Section */}
-                                <div className="section-divider">
-                                    <div className="section-title">Brand Information</div>
-                                    
-                                    <div className="form-row">
-                                        <div className="form-group" style={{ marginBottom: 0 }}>
-                                            <label className="form-label">Brand Name</label>
+                                {/* API Key - only shown when generating captions */}
+                                {!skipCaptions && (
+                                    <div className="form-group">
+                                        <label className="form-label" style={{ display: 'flex', alignItems: 'center' }}>
+                                            Google Gemini API Key
+                                            <InfoDot>
+                                                <strong>Get your free API key:</strong>
+                                                <ol>
+                                                    <li>Go to <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a></li>
+                                                    <li>Sign in with Google</li>
+                                                    <li>Click "Create API Key"</li>
+                                                    <li>Copy key (starts with AIza...)</li>
+                                                </ol>
+                                                <div style={{ marginTop: '8px', opacity: 0.8 }}>Free: 15 requests/minute</div>
+                                            </InfoDot>
+                                        </label>
+                                        <input
+                                            type="password"
+                                            className="form-input"
+                                            value={apiKey}
+                                            onChange={(e) => setApiKey(e.target.value)}
+                                            placeholder="AIza..."
+                                            style={{ maxWidth: '400px' }}
+                                        />
+                                    </div>
+                                )}
+
+                                {/* Brand Info Section - only shown when generating captions */}
+                                {!skipCaptions && (
+                                    <div className="section-divider">
+                                        <div className="section-title">Brand Information</div>
+                                        
+                                        <div className="form-row">
+                                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                                <label className="form-label">Brand Name</label>
+                                                <input
+                                                    type="text"
+                                                    className="form-input"
+                                                    value={brandName}
+                                                    onChange={(e) => setBrandName(e.target.value)}
+                                                    placeholder="e.g., Forma Rosa, Sunset Villa Bali"
+                                                />
+                                            </div>
+
+                                            <div className="form-group" style={{ marginBottom: 0 }}>
+                                                <label className="form-label">
+                                                    Website <span style={{ fontWeight: 400, color: '#999' }}>(optional)</span>
+                                                </label>
+                                                <input
+                                                    type="url"
+                                                    className="form-input"
+                                                    value={brandUrl}
+                                                    onChange={(e) => setBrandUrl(e.target.value)}
+                                                    placeholder="https://yourbrand.com"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="form-group">
+                                            <label className="form-label">
+                                                What does your brand do?
+                                                <InfoDot>
+                                                    <strong>Be specific!</strong> This helps generate relevant captions.
+                                                    <br/><br/>
+                                                    Examples:
+                                                    <br/>• "Boutique hotel in Bali with infinity pool and spa"
+                                                    <br/>• "Italian artisan home decor and bespoke objects"
+                                                    <br/>• "Specialty coffee roaster in Melbourne"
+                                                </InfoDot>
+                                            </label>
                                             <input
                                                 type="text"
                                                 className="form-input"
-                                                value={brandName}
-                                                onChange={(e) => setBrandName(e.target.value)}
-                                                placeholder="e.g., Forma Rosa, Sunset Villa Bali"
+                                                value={brandDescription}
+                                                onChange={(e) => setBrandDescription(e.target.value)}
+                                                placeholder="e.g., Boutique hotel in Bali with infinity pool and spa services"
                                             />
                                         </div>
 
-                                        <div className="form-group" style={{ marginBottom: 0 }}>
+                                        <div className="form-group">
                                             <label className="form-label">
-                                                Website <span style={{ fontWeight: 400, color: '#999' }}>(optional)</span>
+                                                Who is your target audience?
+                                                <InfoDot>
+                                                    <strong>Who are you speaking to?</strong>
+                                                    <br/><br/>
+                                                    Examples:
+                                                    <br/>• "Couples on romantic getaways, honeymooners"
+                                                    <br/>• "Design-conscious homeowners, interior designers"
+                                                    <br/>• "Young professionals who appreciate craft coffee"
+                                                </InfoDot>
                                             </label>
                                             <input
-                                                type="url"
+                                                type="text"
                                                 className="form-input"
-                                                value={brandUrl}
-                                                onChange={(e) => setBrandUrl(e.target.value)}
-                                                placeholder="https://yourbrand.com"
+                                                value={targetAudience}
+                                                onChange={(e) => setTargetAudience(e.target.value)}
+                                                placeholder="e.g., Couples vacationing, honeymooners, middle-class tourists"
                                             />
                                         </div>
                                     </div>
-
-                                    <div className="form-group">
-                                        <label className="form-label">
-                                            What does your brand do?
-                                            <InfoDot>
-                                                <strong>Be specific!</strong> This helps generate relevant captions.
-                                                <br/><br/>
-                                                Examples:
-                                                <br/>• "Boutique hotel in Bali with infinity pool and spa"
-                                                <br/>• "Italian artisan home decor and bespoke objects"
-                                                <br/>• "Specialty coffee roaster in Melbourne"
-                                            </InfoDot>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            className="form-input"
-                                            value={brandDescription}
-                                            onChange={(e) => setBrandDescription(e.target.value)}
-                                            placeholder="e.g., Boutique hotel in Bali with infinity pool and spa services"
-                                        />
-                                    </div>
-
-                                    <div className="form-group">
-                                        <label className="form-label">
-                                            Who is your target audience?
-                                            <InfoDot>
-                                                <strong>Who are you speaking to?</strong>
-                                                <br/><br/>
-                                                Examples:
-                                                <br/>• "Couples on romantic getaways, honeymooners"
-                                                <br/>• "Design-conscious homeowners, interior designers"
-                                                <br/>• "Young professionals who appreciate craft coffee"
-                                            </InfoDot>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            className="form-input"
-                                            value={targetAudience}
-                                            onChange={(e) => setTargetAudience(e.target.value)}
-                                            placeholder="e.g., Couples vacationing, honeymooners, middle-class tourists"
-                                        />
-                                    </div>
-                                </div>
+                                )}
 
                                 {/* Upload Section */}
                                 <div className="section-divider">
@@ -1354,7 +1403,7 @@ Respond ONLY with valid JSON.`;
                                 <button
                                     className="btn btn-primary"
                                     onClick={generateAll}
-                                    disabled={images.length === 0 || !apiKey || isGenerating}
+                                    disabled={images.length === 0 || (!skipCaptions && !apiKey) || isGenerating}
                                     style={{
                                         display: 'flex',
                                         alignItems: 'center',
@@ -1364,9 +1413,11 @@ Respond ONLY with valid JSON.`;
                                     }}
                                 >
                                     {isGenerating ? (
-                                        <span style={{ animation: 'pulse 1.5s infinite' }}>Generating... {generationProgress}%</span>
+                                        <span style={{ animation: 'pulse 1.5s infinite' }}>
+                                            {skipCaptions ? 'Processing...' : `Generating... ${generationProgress}%`}
+                                        </span>
                                     ) : (
-                                        <><SparkleIcon /> Generate All ({images.length})</>
+                                        <><SparkleIcon /> {skipCaptions ? `Process Images (${images.length})` : `Generate All (${images.length})`}</>
                                     )}
                                 </button>
                             </div>
@@ -1483,7 +1534,7 @@ Respond ONLY with valid JSON.`;
                                                 <polyline points="7 10 12 15 17 10"/>
                                                 <line x1="12" y1="15" x2="12" y2="3"/>
                                             </svg>
-                                            Download All (Images + Captions)
+                                            {skipCaptions ? 'Download Images' : 'Download All (Images + Captions)'}
                                         </>
                                     )}
                                 </button>
@@ -1493,14 +1544,14 @@ Respond ONLY with valid JSON.`;
                             <div className="ig-preview">
                                 <div className="ig-preview-header">
                                     <div className="ig-preview-avatar">
-                                        {brandName?.charAt(0).toUpperCase() || 'B'}
+                                        {brandName?.charAt(0).toUpperCase() || 'P'}
                                     </div>
                                     <div>
                                         <div style={{ fontWeight: 600, fontSize: '14px' }}>
-                                            {instagramHandle}
+                                            {skipCaptions ? 'Preview' : instagramHandle}
                                         </div>
                                         <div style={{ fontSize: '12px', color: 'var(--text-light)' }}>
-                                            {brandDescription || 'Instagram Post'}
+                                            {skipCaptions ? 'Adjust crop with drag' : (brandDescription || 'Instagram Post')}
                                         </div>
                                     </div>
                                 </div>
@@ -1558,7 +1609,7 @@ Respond ONLY with valid JSON.`;
                                     )}
                                 </div>
 
-                                {selectedImage?.result && (
+                                {selectedImage?.result && !skipCaptions && (
                                     <div className="ig-preview-content">
                                         <div className="ig-preview-meta">
                                             <div className="ig-preview-meta-item">
@@ -1632,7 +1683,7 @@ Respond ONLY with valid JSON.`;
                                     </div>
                                 )}
 
-                                {selectedImage && !selectedImage.result && (
+                                {selectedImage && !selectedImage.result && !skipCaptions && (
                                     <div className="ig-preview-content" style={{ textAlign: 'center', padding: '40px' }}>
                                         <p style={{ color: 'var(--text-light)', marginBottom: '16px' }}>
                                             No caption generated for this image
