@@ -224,6 +224,30 @@
 
         .ig-grid-item:hover img { transform: scale(1.05); }
 
+        .upload-preview-item.drag-over::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border: 2px solid var(--primary);
+            background: rgba(212, 165, 154, 0.25);
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .upload-preview-item.stack-over::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: rgba(212, 165, 154, 0.45);
+            border: 3px solid var(--primary-dark);
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .upload-preview-item.stack-over img { transform: scale(0.88) !important; }
+
+        .upload-preview-item .unstack-btn { right: auto; left: 2px; }
+
         .ig-grid-item.stack-over::before {
             content: '';
             position: absolute;
@@ -539,12 +563,17 @@
 
         // Crop aspect ratios (Instagram standard sizes)
         const RATIOS = {
-            '1:1':    { w: 1080, h: 1080, label: 'Square' },
-            '4:5':    { w: 1080, h: 1350, label: 'Portrait' },
-            '3:4':    { w: 1080, h: 1440, label: 'Grid' },
-            '1.91:1': { w: 1080, h: 566,  label: 'Landscape' },
-            '9:16':   { w: 1080, h: 1920, label: 'Story' },
+            '1:1':    { w: 1080, h: 1080, label: 'Square',   base: '1:1',    orient: 'both' },
+            '4:5':    { w: 1080, h: 1350, label: 'Classic',  base: '4:5',    orient: 'portrait' },
+            '3:4':    { w: 1080, h: 1440, label: 'Grid',     base: '3:4',    orient: 'portrait' },
+            '9:16':   { w: 1080, h: 1920, label: 'Story',    base: '9:16',   orient: 'portrait' },
+            '5:4':    { w: 1080, h: 864,  label: 'Classic',  base: '4:5',    orient: 'landscape' },
+            '4:3':    { w: 1080, h: 810,  label: 'Standard', base: '3:4',    orient: 'landscape' },
+            '16:9':   { w: 1080, h: 608,  label: 'Wide',     base: '9:16',   orient: 'landscape' },
+            '1.91:1': { w: 1080, h: 566,  label: 'Banner',   base: '1.91:1', orient: 'landscape' },
         };
+
+        const ORIENT_DEFAULT = { portrait: '3:4', landscape: '4:3' };
         const GRID_RATIO = 3 / 4; // Instagram profile grid always shows a centered 3:4 crop
 
         // Group contiguous images sharing a carouselId into posts (a carousel = one post)
@@ -567,31 +596,62 @@
             return posts;
         };
 
-        const RatioSelector = ({ value, onChange, compact }) => (
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                {Object.entries(RATIOS).map(([key, r]) => (
-                    <button
-                        key={key}
-                        type="button"
-                        onClick={() => onChange(key)}
-                        style={{
-                            padding: compact ? '4px 10px' : '8px 14px',
-                            borderRadius: '6px',
-                            border: `1px solid ${value === key ? 'var(--primary-dark)' : 'var(--border)'}`,
-                            background: value === key ? 'var(--primary-light)' : 'var(--background)',
-                            color: value === key ? 'var(--primary-dark)' : 'var(--text-light)',
-                            fontWeight: value === key ? 600 : 400,
-                            fontSize: compact ? '11px' : '12px',
-                            cursor: 'pointer',
-                            fontFamily: 'inherit',
-                            lineHeight: 1.3
-                        }}
-                    >
-                        {compact ? key : `${key} · ${r.label}`}
-                    </button>
-                ))}
-            </div>
-        );
+        const RatioSelector = ({ value, onChange, compact }) => {
+            const spec = RATIOS[value] || RATIOS['3:4'];
+            const derivedOrient = spec.orient === 'both' ? null : spec.orient;
+            const [orientState, setOrientState] = useState(derivedOrient || 'portrait');
+            const orient = derivedOrient || orientState;
+
+            useEffect(() => {
+                if (derivedOrient) setOrientState(derivedOrient);
+            }, [value]);
+
+            const pill = (active) => ({
+                padding: compact ? '4px 10px' : '8px 14px',
+                borderRadius: '6px',
+                border: `1px solid ${active ? 'var(--primary-dark)' : 'var(--border)'}`,
+                background: active ? 'var(--primary-light)' : 'var(--background)',
+                color: active ? 'var(--primary-dark)' : 'var(--text-light)',
+                fontWeight: active ? 600 : 400,
+                fontSize: compact ? '11px' : '12px',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                lineHeight: 1.3
+            });
+
+            const setOrient = (o) => {
+                if (o === orient) return;
+                setOrientState(o);
+                const cur = RATIOS[value];
+                if (cur && cur.orient !== 'both') {
+                    const counterpart = Object.keys(RATIOS).find(k => RATIOS[k].base === cur.base && RATIOS[k].orient === o);
+                    onChange(counterpart || ORIENT_DEFAULT[o]);
+                }
+            };
+
+            const options = Object.entries(RATIOS).filter(([k, r]) => r.orient === 'both' || r.orient === orient);
+
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                        <button type="button" onClick={() => setOrient('portrait')} style={pill(orient === 'portrait')}>▯ Portrait</button>
+                        <button type="button" onClick={() => setOrient('landscape')} style={pill(orient === 'landscape')}>▭ Landscape</button>
+                    </div>
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                        {options.map(([key, r]) => (
+                            <button
+                                key={key}
+                                type="button"
+                                onClick={() => onChange(key)}
+                                style={pill(value === key)}
+                            >
+                                {compact ? key : `${key} · ${r.label}`}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
 
         // Main App
         function App() {
@@ -609,10 +669,7 @@
             const [brandDescription, setBrandDescription] = useState(() => getSaved('brandDescription'));
             const [targetAudience, setTargetAudience] = useState(() => getSaved('targetAudience'));
             const [brandUrl, setBrandUrl] = useState(() => getSaved('brandUrl'));
-            const [cropRatio, setCropRatio] = useState(() => {
-                const saved = getSaved('cropRatio', '3:4');
-                return RATIOS[saved] ? saved : '3:4';
-            });
+            const [cropRatio] = useState('3:4'); // default for new images; per-image override in the preview panel
             const [skipCaptions, setSkipCaptions] = useState(false);
             const [images, setImages] = useState([]);
             const [isGenerating, setIsGenerating] = useState(false);
@@ -628,6 +685,11 @@
             const [dragOverIndex, setDragOverIndex] = useState(null);
             const [dragIntent, setDragIntent] = useState('reorder'); // 'reorder' | 'stack'
             const [stackWarning, setStackWarning] = useState('');
+            const [uploadDragIndex, setUploadDragIndex] = useState(null);
+            const [uploadDragOverIndex, setUploadDragOverIndex] = useState(null);
+            const [uploadDragIntent, setUploadDragIntent] = useState('reorder');
+            const [memberDragIndex, setMemberDragIndex] = useState(null);
+            const [memberDragOverIndex, setMemberDragOverIndex] = useState(null);
             const [isDownloading, setIsDownloading] = useState(false);
             const [isCropDragging, setIsCropDragging] = useState(false);
             const [isZoomDragging, setIsZoomDragging] = useState(false);
@@ -639,10 +701,6 @@
             const targetRatio = ratioSpec.w / ratioSpec.h;
             const ratioCss = `${ratioSpec.w} / ${ratioSpec.h}`;
             const specFor = (img) => RATIOS[img?.cropRatioKey] || ratioSpec;
-            const applyRatioToAll = (key) => {
-                setCropRatio(key);
-                setImages(prev => prev.map(im => ({ ...im, cropRatioKey: key })));
-            };
             const setSelectedImageRatio = (key) => {
                 setImages(prev => {
                     const sel = prev[selectedIndex];
@@ -660,11 +718,10 @@
                     localStorage.setItem('postcraft_brandDescription', brandDescription);
                     localStorage.setItem('postcraft_targetAudience', targetAudience);
                     localStorage.setItem('postcraft_brandUrl', brandUrl);
-                    localStorage.setItem('postcraft_cropRatio', cropRatio);
                 } catch (e) {
                     // localStorage not available
                 }
-            }, [apiKey, brandName, brandDescription, targetAudience, brandUrl, cropRatio]);
+            }, [apiKey, brandName, brandDescription, targetAudience, brandUrl]);
 
             // Crop drag handlers
             const handleCropDragStart = (e) => {
@@ -1040,35 +1097,40 @@ Respond ONLY with valid JSON.`;
                 setTimeout(() => setStackWarning(''), 2500);
             };
 
+            // Shared by results grid and setup strip: stack post fromIdx onto toIdx, or reorder
+            const stackOrReorderPosts = (fromIdx, toIdx, intent) => {
+                const arr = [...getPosts(images)];
+                if (intent === 'stack') {
+                    const target = arr[toIdx];
+                    const dragged = arr[fromIdx];
+                    if (!target || !dragged) return;
+                    const total = target.indices.length + dragged.indices.length;
+                    if (total > 5) {
+                        flashStackWarning(`Max 5 images per carousel — that stack would have ${total}`);
+                        return;
+                    }
+                    const id = target.cover.carouselId || Date.now();
+                    const ratioKey = target.cover.cropRatioKey || cropRatio;
+                    const mergedImgs = [...target.indices, ...dragged.indices]
+                        .map(i => ({ ...images[i], carouselId: id, cropRatioKey: ratioKey }));
+                    const newImages = [];
+                    arr.forEach((p, pi) => {
+                        if (pi === fromIdx) return;
+                        if (pi === toIdx) { newImages.push(...mergedImgs); return; }
+                        p.indices.forEach(i => newImages.push(images[i]));
+                    });
+                    setImages(newImages);
+                    setSelectedIndex(newImages.indexOf(mergedImgs[0]));
+                } else {
+                    const [moved] = arr.splice(fromIdx, 1);
+                    arr.splice(toIdx, 0, moved);
+                    applyNewOrder(reorderToImages(arr));
+                }
+            };
+
             const handleGridDragEnd = () => {
                 if (draggedIndex !== null && dragOverIndex !== null && draggedIndex !== dragOverIndex) {
-                    const arr = [...getPosts(images)];
-                    if (dragIntent === 'stack') {
-                        // Stack the dragged post onto the target post -> carousel (target = cover)
-                        const target = arr[dragOverIndex];
-                        const dragged = arr[draggedIndex];
-                        const total = target.indices.length + dragged.indices.length;
-                        if (total > 5) {
-                            flashStackWarning(`Max 5 images per carousel — that stack would have ${total}`);
-                        } else {
-                            const id = target.cover.carouselId || Date.now();
-                            const ratioKey = target.cover.cropRatioKey || cropRatio;
-                            const mergedImgs = [...target.indices, ...dragged.indices]
-                                .map(i => ({ ...images[i], carouselId: id, cropRatioKey: ratioKey }));
-                            const newImages = [];
-                            arr.forEach((p, pi) => {
-                                if (pi === draggedIndex) return;
-                                if (pi === dragOverIndex) { newImages.push(...mergedImgs); return; }
-                                p.indices.forEach(i => newImages.push(images[i]));
-                            });
-                            setImages(newImages);
-                            setSelectedIndex(newImages.indexOf(mergedImgs[0]));
-                        }
-                    } else {
-                        const [moved] = arr.splice(draggedIndex, 1);
-                        arr.splice(dragOverIndex, 0, moved);
-                        applyNewOrder(reorderToImages(arr));
-                    }
+                    stackOrReorderPosts(draggedIndex, dragOverIndex, dragIntent);
                 }
                 setDraggedIndex(null);
                 setDragOverIndex(null);
@@ -1078,6 +1140,68 @@ Respond ONLY with valid JSON.`;
             const handleGridDragLeave = () => {
                 setDragOverIndex(null);
                 setDragIntent('reorder');
+            };
+
+            // Setup-panel thumbnail drag (post-based, same stack/reorder semantics)
+            const handleUploadDragStart = (postIndex) => setUploadDragIndex(postIndex);
+
+            const handleUploadDragOver = (e, postIndex) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (uploadDragIndex !== null && uploadDragIndex !== postIndex) {
+                    const r = e.currentTarget.getBoundingClientRect();
+                    const relX = (e.clientX - r.left) / r.width;
+                    const relY = (e.clientY - r.top) / r.height;
+                    const central = relX > 0.25 && relX < 0.75 && relY > 0.25 && relY < 0.75;
+                    setUploadDragOverIndex(postIndex);
+                    setUploadDragIntent(central ? 'stack' : 'reorder');
+                }
+            };
+
+            const handleUploadDragEnd = () => {
+                if (uploadDragIndex !== null && uploadDragOverIndex !== null && uploadDragIndex !== uploadDragOverIndex) {
+                    stackOrReorderPosts(uploadDragIndex, uploadDragOverIndex, uploadDragIntent);
+                }
+                setUploadDragIndex(null);
+                setUploadDragOverIndex(null);
+                setUploadDragIntent('reorder');
+            };
+
+            const handleUploadDragLeave = () => {
+                setUploadDragOverIndex(null);
+                setUploadDragIntent('reorder');
+            };
+
+            const removePost = (post) => {
+                setImages(prev => prev.filter((_, i) => !post.indices.includes(i)));
+                setSelectedIndex(0);
+            };
+
+            const unstackPost = (post) => {
+                const id = post.cover.carouselId;
+                if (!id) return;
+                setImages(prev => prev.map(im => im.carouselId === id ? { ...im, carouselId: null } : im));
+            };
+
+            // Reorder a member within the selected carousel (position 0 = cover)
+            const reorderCarouselMember = (from, to) => {
+                if (!selectedPost || from === to) return;
+                const block = selectedPost.indices.map(i => images[i]);
+                const [moved] = block.splice(from, 1);
+                block.splice(to, 0, moved);
+                const start = selectedPost.indices[0];
+                const newImages = [...images];
+                newImages.splice(start, block.length, ...block);
+                setImages(newImages);
+                setSelectedIndex(start + to);
+            };
+
+            const handleMemberDragEnd = () => {
+                if (memberDragIndex !== null && memberDragOverIndex !== null && memberDragIndex !== memberDragOverIndex) {
+                    reorderCarouselMember(memberDragIndex, memberDragOverIndex);
+                }
+                setMemberDragIndex(null);
+                setMemberDragOverIndex(null);
             };
 
             // Shuffle posts randomly (carousels stay together)
@@ -1292,7 +1416,7 @@ Respond ONLY with valid JSON.`;
                         alignItems: 'center'
                     }}>
                         <div>
-                            <h1 style={{ fontSize: '18px', fontWeight: 600 }}>PostCraft <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-light)' }}>v3.1</span></h1>
+                            <h1 style={{ fontSize: '18px', fontWeight: 600 }}>PostCraft <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-light)' }}>v3.5</span></h1>
                             <p style={{ color: 'var(--text-light)', fontSize: '13px', marginTop: '2px' }}>
                                 Batch Instagram Generator
                             </p>
@@ -1465,23 +1589,6 @@ Respond ONLY with valid JSON.`;
                                     </div>
                                 )}
 
-                                {/* Crop Format Section */}
-                                <div className="section-divider">
-                                    <div className="section-title" style={{ display: 'flex', alignItems: 'center' }}>
-                                        Crop Format
-                                        <InfoDot>
-                                            <strong>Output aspect ratio.</strong> Instagram accepts all of these in the feed, but your profile grid always shows a centered 3:4 crop. Sets all images; override any single image in the preview panel after processing.
-                                            <br/><br/>
-                                            • 1:1 — 1080×1080 square<br/>
-                                            • 4:5 — 1080×1350 portrait<br/>
-                                            • 3:4 — 1080×1440 grid standard<br/>
-                                            • 1.91:1 — 1080×566 landscape<br/>
-                                            • 9:16 — 1080×1920 story/reel
-                                        </InfoDot>
-                                    </div>
-                                    <RatioSelector value={cropRatio} onChange={applyRatioToAll} />
-                                </div>
-
                                 {/* Upload Section */}
                                 <div className="section-divider">
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
@@ -1512,7 +1619,9 @@ Respond ONLY with valid JSON.`;
                                         {images.length > 0 ? (
                                             <>
                                                 <div className="upload-preview-grid">
-                                                    {images.map((img, i) => {
+                                                    {posts.map((post, postIndex) => {
+                                                        const img = post.cover;
+                                                        const isCarousel = post.indices.length > 1;
                                                         const iSpec = specFor(img);
                                                         const offset = img.cropOffset ?? 0.5;
                                                         const zoom = img.cropZoom ?? 1;
@@ -1521,24 +1630,51 @@ Respond ONLY with valid JSON.`;
                                                         const objectPos = isHorizontalCrop
                                                             ? `${offset * 100}% center`
                                                             : `center ${offset * 100}%`;
-                                                        
+
                                                         return (
-                                                            <div key={i} className="upload-preview-item" style={{ aspectRatio: `${iSpec.w} / ${iSpec.h}` }}>
-                                                                <img 
-                                                                    src={img.preview} 
-                                                                    alt="" 
-                                                                    style={{ 
+                                                            <div
+                                                                key={post.indices[0]}
+                                                                className={`upload-preview-item ${uploadDragOverIndex === postIndex ? (uploadDragIntent === 'stack' ? 'stack-over' : 'drag-over') : ''}`}
+                                                                style={{ aspectRatio: `${iSpec.w} / ${iSpec.h}`, opacity: uploadDragIndex === postIndex ? 0.5 : 1, cursor: 'grab' }}
+                                                                draggable={true}
+                                                                onDragStart={(e) => { e.stopPropagation(); handleUploadDragStart(postIndex); }}
+                                                                onDragOver={(e) => handleUploadDragOver(e, postIndex)}
+                                                                onDragEnd={handleUploadDragEnd}
+                                                                onDragLeave={handleUploadDragLeave}
+                                                                onDrop={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                                            >
+                                                                <img
+                                                                    src={img.preview}
+                                                                    alt=""
+                                                                    draggable={false}
+                                                                    style={{
                                                                         objectPosition: objectPos,
                                                                         transform: `scale(${zoom})`,
                                                                         transformOrigin: objectPos
-                                                                    }} 
+                                                                    }}
                                                                 />
                                                                 <button
                                                                     className="remove-btn"
-                                                                    onClick={(e) => { e.stopPropagation(); removeImage(i); }}
+                                                                    onClick={(e) => { e.stopPropagation(); removePost(post); }}
+                                                                    title={isCarousel ? `Remove carousel (${post.indices.length} images)` : 'Remove image'}
                                                                 >
                                                                     ×
                                                                 </button>
+                                                                {isCarousel && (
+                                                                    <button
+                                                                        className="remove-btn unstack-btn"
+                                                                        onClick={(e) => { e.stopPropagation(); unstackPost(post); }}
+                                                                        title="Unstack carousel"
+                                                                    >
+                                                                        ⊟
+                                                                    </button>
+                                                                )}
+                                                                {isCarousel && (
+                                                                    <div style={{ position: 'absolute', bottom: '4px', right: '4px', display: 'flex', alignItems: 'center', gap: '2px', pointerEvents: 'none', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))' }}>
+                                                                        <span style={{ color: 'white', fontSize: '9px', fontWeight: 700 }}>{post.indices.length}</span>
+                                                                        <CarouselIcon size={12} />
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         );
                                                     })}
@@ -1546,6 +1682,16 @@ Respond ONLY with valid JSON.`;
                                                 {posts.length < 9 && images.length < 45 && (
                                                     <p style={{ color: 'var(--text-light)', fontSize: '12px' }}>
                                                         Click or drop to add more ({9 - posts.length} grid tile{9 - posts.length !== 1 ? 's' : ''} open · {45 - images.length} image slots left)
+                                                    </p>
+                                                )}
+                                                {posts.length > 1 && (
+                                                    <p style={{ color: 'var(--text-light)', fontSize: '11px', marginTop: '4px' }}>
+                                                        Drag a thumbnail onto the center of another to stack a carousel · drag to edges to reorder · ⊟ unstacks
+                                                    </p>
+                                                )}
+                                                {stackWarning && (
+                                                    <p style={{ color: 'var(--error)', fontSize: '11px', marginTop: '4px', fontWeight: 600 }}>
+                                                        {stackWarning}
                                                     </p>
                                                 )}
                                             </>
@@ -1609,10 +1755,6 @@ Respond ONLY with valid JSON.`;
                         }}>
                             {/* Grid */}
                             <div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
-                                    <span style={{ fontSize: '12px', color: 'var(--text-light)', fontWeight: 500 }}>All</span>
-                                    <RatioSelector value={cropRatio} onChange={applyRatioToAll} compact />
-                                </div>
                                 <div className="ig-grid">
                                     {posts.map((post, postIndex) => {
                                         const img = post.cover;
@@ -1879,22 +2021,31 @@ Respond ONLY with valid JSON.`;
                                                 <div
                                                     key={imgIdx}
                                                     onClick={() => setSelectedIndex(imgIdx)}
+                                                    draggable={true}
+                                                    onDragStart={(e) => { e.stopPropagation(); setMemberDragIndex(k); }}
+                                                    onDragOver={(e) => { e.preventDefault(); if (memberDragIndex !== null && memberDragIndex !== k) setMemberDragOverIndex(k); }}
+                                                    onDragEnd={handleMemberDragEnd}
+                                                    onDragLeave={() => setMemberDragOverIndex(null)}
+                                                    title={k === 0 ? 'Cover image · drag to reorder' : 'Drag to reorder · position 1 = cover'}
                                                     style={{
                                                         width: '44px', height: '44px', borderRadius: '4px', overflow: 'hidden',
-                                                        cursor: 'pointer', position: 'relative', flexShrink: 0,
-                                                        outline: selectedIndex === imgIdx ? '2px solid var(--primary)' : '1px solid var(--border)'
+                                                        cursor: 'grab', position: 'relative', flexShrink: 0,
+                                                        opacity: memberDragIndex === k ? 0.5 : 1,
+                                                        outline: memberDragOverIndex === k ? '2px solid var(--primary-dark)' :
+                                                                 (selectedIndex === imgIdx ? '2px solid var(--primary)' : '1px solid var(--border)')
                                                     }}
                                                 >
-                                                    <img src={images[imgIdx].preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    <img src={images[imgIdx].preview} alt="" draggable={false} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                     <span style={{ position: 'absolute', bottom: '1px', right: '3px', color: 'white', fontSize: '9px', fontWeight: 700, textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>{k + 1}</span>
+                                                    {k === 0 && (
+                                                        <span style={{ position: 'absolute', top: '1px', left: '3px', color: 'white', fontSize: '8px', fontWeight: 700, letterSpacing: '0.5px', textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>COVER</span>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
-                                        {!skipCaptions && (
-                                            <p style={{ fontSize: '11px', color: 'var(--text-light)', marginTop: '6px' }}>
-                                                Click a thumbnail to adjust its crop. The cover image's caption is used for the whole post.
-                                            </p>
-                                        )}
+                                        <p style={{ fontSize: '11px', color: 'var(--text-light)', marginTop: '6px' }}>
+                                            Click a thumbnail to adjust its crop · drag thumbnails to reorder · position 1 is the cover{!skipCaptions ? " and its caption is used for the post" : ""}.
+                                        </p>
                                     </div>
                                 )}
 
