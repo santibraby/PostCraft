@@ -690,6 +690,7 @@
             const [uploadDragIntent, setUploadDragIntent] = useState('reorder');
             const [memberDragIndex, setMemberDragIndex] = useState(null);
             const [memberDragOverIndex, setMemberDragOverIndex] = useState(null);
+            const stackDwellRef = useRef(null); // pending hover-to-stack timer
             const [isDownloading, setIsDownloading] = useState(false);
             const [isCropDragging, setIsCropDragging] = useState(false);
             const [isZoomDragging, setIsZoomDragging] = useState(false);
@@ -1079,7 +1080,16 @@ Respond ONLY with valid JSON.`;
                     const relY = (e.clientY - r.top) / r.height;
                     const central = relX > 0.35 && relX < 0.65 && relY > 0.35 && relY < 0.65;
                     setDragOverIndex(index);
-                    setDragIntent(central ? 'stack' : 'reorder');
+                    if (central) {
+                        // Hold over the center for a moment to arm stacking; a quick drop reorders
+                        if (dragIntent !== 'stack' && (!stackDwellRef.current || stackDwellRef.current.index !== index || stackDwellRef.current.surface !== 'grid')) {
+                            clearStackDwell();
+                            stackDwellRef.current = { surface: 'grid', index, timer: setTimeout(() => setDragIntent('stack'), 500) };
+                        }
+                    } else {
+                        clearStackDwell();
+                        setDragIntent('reorder');
+                    }
                 }
             };
 
@@ -1090,6 +1100,13 @@ Respond ONLY with valid JSON.`;
                 setImages(newImages);
                 const ni = newImages.indexOf(selImg);
                 setSelectedIndex(ni >= 0 ? ni : 0);
+            };
+
+            const clearStackDwell = () => {
+                if (stackDwellRef.current) {
+                    clearTimeout(stackDwellRef.current.timer);
+                    stackDwellRef.current = null;
+                }
             };
 
             const flashStackWarning = (msg) => {
@@ -1132,12 +1149,16 @@ Respond ONLY with valid JSON.`;
                 if (draggedIndex !== null && dragOverIndex !== null && draggedIndex !== dragOverIndex) {
                     stackOrReorderPosts(draggedIndex, dragOverIndex, dragIntent);
                 }
+                clearStackDwell();
                 setDraggedIndex(null);
                 setDragOverIndex(null);
                 setDragIntent('reorder');
             };
 
-            const handleGridDragLeave = () => {
+            const handleGridDragLeave = (e) => {
+                // dragleave also fires when entering a child element; ignore those
+                if (e && e.relatedTarget && e.currentTarget && e.currentTarget.contains(e.relatedTarget)) return;
+                clearStackDwell();
                 setDragOverIndex(null);
                 setDragIntent('reorder');
             };
@@ -1154,7 +1175,15 @@ Respond ONLY with valid JSON.`;
                     const relY = (e.clientY - r.top) / r.height;
                     const central = relX > 0.35 && relX < 0.65 && relY > 0.35 && relY < 0.65;
                     setUploadDragOverIndex(postIndex);
-                    setUploadDragIntent(central ? 'stack' : 'reorder');
+                    if (central) {
+                        if (uploadDragIntent !== 'stack' && (!stackDwellRef.current || stackDwellRef.current.index !== postIndex || stackDwellRef.current.surface !== 'upload')) {
+                            clearStackDwell();
+                            stackDwellRef.current = { surface: 'upload', index: postIndex, timer: setTimeout(() => setUploadDragIntent('stack'), 500) };
+                        }
+                    } else {
+                        clearStackDwell();
+                        setUploadDragIntent('reorder');
+                    }
                 }
             };
 
@@ -1162,12 +1191,15 @@ Respond ONLY with valid JSON.`;
                 if (uploadDragIndex !== null && uploadDragOverIndex !== null && uploadDragIndex !== uploadDragOverIndex) {
                     stackOrReorderPosts(uploadDragIndex, uploadDragOverIndex, uploadDragIntent);
                 }
+                clearStackDwell();
                 setUploadDragIndex(null);
                 setUploadDragOverIndex(null);
                 setUploadDragIntent('reorder');
             };
 
-            const handleUploadDragLeave = () => {
+            const handleUploadDragLeave = (e) => {
+                if (e && e.relatedTarget && e.currentTarget && e.currentTarget.contains(e.relatedTarget)) return;
+                clearStackDwell();
                 setUploadDragOverIndex(null);
                 setUploadDragIntent('reorder');
             };
@@ -1430,7 +1462,7 @@ Respond ONLY with valid JSON.`;
                         alignItems: 'center'
                     }}>
                         <div>
-                            <h1 style={{ fontSize: '18px', fontWeight: 600 }}>PostCraft <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-light)' }}>v3.6</span></h1>
+                            <h1 style={{ fontSize: '18px', fontWeight: 600 }}>PostCraft <span style={{ fontSize: '12px', fontWeight: 400, color: 'var(--text-light)' }}>v3.7</span></h1>
                             <p style={{ color: 'var(--text-light)', fontSize: '13px', marginTop: '2px' }}>
                                 Batch Instagram Generator
                             </p>
@@ -1700,7 +1732,7 @@ Respond ONLY with valid JSON.`;
                                                 )}
                                                 {posts.length > 1 && (
                                                     <p style={{ color: 'var(--text-light)', fontSize: '11px', marginTop: '4px' }}>
-                                                        Drag a thumbnail onto the center of another to stack a carousel · drag to edges to reorder · ⊟ unstacks
+                                                        Hold a thumbnail over the center of another until it shrinks, then drop to stack · quick drops reorder · ⊟ unstacks
                                                     </p>
                                                 )}
                                                 {stackWarning && (
@@ -1906,7 +1938,7 @@ Respond ONLY with valid JSON.`;
 
                                 {!groupMode && (
                                     <p style={{ fontSize: '11px', color: 'var(--text-light)', marginTop: '8px', textAlign: 'center' }}>
-                                        Tip: drop a card onto the center of another to stack a carousel · drop at the edges to reorder
+                                        Tip: hold a card over the center of another until it shrinks, then drop to stack · quick drops reorder
                                     </p>
                                 )}
                                 
